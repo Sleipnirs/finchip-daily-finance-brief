@@ -645,14 +645,15 @@ def run_skill(fmt: str = "both", out_dir: str = "./out", demo: bool = False,
         fetch_news(brief, top_n=news_count)
     build_analysis(brief)
 
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%y%m%d")
     result = {"generated_at": brief.generated_at, "warnings": brief.warnings}
     if fmt in ("md", "both"):
-        md_path = os.path.join(out_dir, "report.md")
+        md_path = os.path.join(out_dir, f"report{stamp}.md")
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(render_markdown(brief))
         result["md_path"] = md_path
     if fmt in ("pdf", "both"):
-        pdf_path = os.path.join(out_dir, "report.pdf")
+        pdf_path = os.path.join(out_dir, f"report{stamp}.pdf")
         render_pdf(brief, pdf_path)
         result["pdf_path"] = pdf_path
     return result
@@ -672,11 +673,20 @@ def serve(port: int, out_dir: str) -> None:
                     res = run_skill(fmt=fmt, out_dir=out_dir, demo=demo)
                     body = json.dumps(res).encode()
                     self.send_response(200); self.send_header("Content-Type", "application/json")
-                elif u.path in ("/report.md", "/report.pdf"):
-                    p = os.path.join(out_dir, u.path.lstrip("/"))
+                elif re.fullmatch(r"/report(\d{6})?\.(md|pdf)", u.path):
+                    ext = u.path.rsplit(".", 1)[1]
+                    name = u.path.lstrip("/")
+                    p = os.path.join(out_dir, name)
+                    if not re.fullmatch(r"report\d{6}\." + ext, name):
+                        # bare /report.md or /report.pdf -> latest dated file
+                        import glob
+                        cand = sorted(glob.glob(os.path.join(out_dir, f"report[0-9][0-9][0-9][0-9][0-9][0-9].{ext}")))
+                        if not cand:
+                            raise FileNotFoundError(f"no report*.{ext} generated yet")
+                        p = cand[-1]
                     with open(p, "rb") as f:
                         body = f.read()
-                    ctype = "text/markdown" if p.endswith(".md") else "application/pdf"
+                    ctype = "text/markdown" if ext == "md" else "application/pdf"
                     self.send_response(200); self.send_header("Content-Type", ctype)
                 elif u.path == "/health":
                     body = b'{"ok":true,"skill":"daily-finance-brief"}'

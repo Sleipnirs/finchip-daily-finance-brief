@@ -6,7 +6,7 @@ A FinChip Skill that generates an English **daily global finance briefing**:
 2. **Top 10 Global Political & Economic News** — ranked from multi-source RSS by keyword importance × source weight × recency (36-hour window, per-source diversity cap).
 3. **Analysis** — one cohesive section, max 500 words. Uses the Anthropic API when `ANTHROPIC_API_KEY` is set; otherwise a deterministic rule-based engine (risk-on/off score, top movers, rates / dollar / gold / crypto cross-read).
 
-Outputs `report.md` (always) and `report.pdf` (reportlab, FinChip design language).
+Outputs `reportYYMMDD.md` (always) and `reportYYMMDD.pdf` (reportlab, FinChip design language).
 
 ## Repository layout
 
@@ -38,8 +38,8 @@ Result JSON is printed to stdout; artifacts land in `./out/`:
 ```json
 {
   "generated_at": "2026-07-04 22:05",
-  "md_path": "./out/report.md",
-  "pdf_path": "./out/report.pdf",
+  "md_path": "./out/report260704.md",
+  "pdf_path": "./out/report260704.pdf",
   "warnings": []
 }
 ```
@@ -74,7 +74,8 @@ python daily_finance_brief.py --serve --port 8787
 | Endpoint | Purpose |
 |---|---|
 | `GET /run?format=both` | trigger a generation, returns result JSON |
-| `GET /report.md`, `GET /report.pdf` | fetch latest artifacts |
+| `GET /report.md`, `GET /report.pdf` | fetch **latest** artifacts |
+| `GET /reportYYMMDD.md`, `GET /reportYYMMDD.pdf` | fetch a specific day |
 | `GET /health` | liveness |
 
 ## Scheduling

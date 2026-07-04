@@ -1,7 +1,7 @@
 {
   "$schema": "https://finchip.ai/schemas/skill/1.0.json",
   "name": "daily-finance-brief",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "repository": "https://github.com/Sleipnirs/finchip-daily-finance-brief",
   "title": "Daily Global Finance Brief",
   "description": "Generates an English daily briefing: one-page global asset dashboard (indices, blue chips, FX, commodities, crypto, rates & vol), top-10 political/economic headlines, and an analysis section (<= 500 words). Output as report.md and/or report.pdf.",
@@ -71,10 +71,12 @@
           "type": "string"
         },
         "md_path": {
-          "type": "string"
+          "type": "string",
+          "description": "path to reportYYMMDD.md (UTC date stamp)"
         },
         "pdf_path": {
-          "type": "string"
+          "type": "string",
+          "description": "path to reportYYMMDD.pdf (UTC date stamp)"
         },
         "warnings": {
           "type": "array",
