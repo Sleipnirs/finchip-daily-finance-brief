@@ -180,6 +180,19 @@ def _fetch_yfinance(symbols: list[str]) -> dict[str, tuple[float, float]]:
                 continue
     except Exception:
         pass
+    # per-symbol retry for anything the batch missed (e.g. sqlite cache
+    # "database is locked" under threaded download)
+    for sym in symbols:
+        if sym in out:
+            continue
+        try:
+            time.sleep(0.3)
+            closes = yf.Ticker(sym).history(period="5d", interval="1d")["Close"].dropna()
+            if len(closes) >= 2:
+                last, prev = float(closes.iloc[-1]), float(closes.iloc[-2])
+                out[sym] = (last, (last / prev - 1.0) * 100.0)
+        except Exception:
+            continue
     return out
 
 
@@ -188,7 +201,10 @@ def _fetch_stooq(stooq_sym: str) -> Optional[tuple[float, float]]:
     url = f"https://stooq.com/q/d/l/?s={stooq_sym}&i=d"
     try:
         r = requests.get(url, headers=UA, timeout=10)
-        rows = [ln.split(",") for ln in r.text.strip().splitlines()[1:] if ln]
+        text = r.text.strip()
+        if not text.lower().startswith("date,"):
+            return None            # rate-limit page / HTML error, not CSV
+        rows = [ln.split(",") for ln in text.splitlines()[1:] if ln]
         closes = [float(row[4]) for row in rows[-3:] if len(row) >= 5]
         if len(closes) >= 2:
             last, prev = closes[-1], closes[-2]
