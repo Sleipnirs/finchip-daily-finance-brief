@@ -231,6 +231,24 @@ def _fetch_coingecko() -> dict[str, tuple[float, float]]:
     return out
 
 
+def _fetch_fred_dgs10() -> Optional[tuple[float, float]]:
+    """US 10Y yield from FRED (official, no key). Returns (last, pct_change)."""
+    url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
+    try:
+        r = requests.get(url, headers=UA, timeout=10)
+        vals = []
+        for ln in r.text.strip().splitlines()[1:]:
+            parts = ln.split(",")
+            if len(parts) == 2 and parts[1] not in (".", ""):
+                vals.append(float(parts[1]))
+        if len(vals) >= 2:
+            last, prev = vals[-1], vals[-2]
+            return last, (last / prev - 1.0) * 100.0
+    except Exception:
+        return None
+    return None
+
+
 def fetch_market(brief: Brief) -> None:
     all_yahoo = [sym for grp in INSTRUMENTS.values() for sym, _, _ in grp]
     yq = _fetch_yfinance(all_yahoo)
@@ -245,6 +263,10 @@ def fetch_market(brief: Brief) -> None:
                 q.price, q.change_pct, q.ok = yq[sym][0], yq[sym][1], True
             elif stooq_sym:
                 res = _fetch_stooq(stooq_sym)
+                if res:
+                    q.price, q.change_pct, q.ok = res[0], res[1], True
+            if not q.ok and sym == "^TNX":          # dedicated FRED fallback for US 10Y
+                res = _fetch_fred_dgs10()
                 if res:
                     q.price, q.change_pct, q.ok = res[0], res[1], True
             if not q.ok:
