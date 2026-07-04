@@ -2,7 +2,7 @@
 
 A FinChip Skill that generates an English **daily global finance briefing**:
 
-1. **Global Asset Dashboard** — one-page designed layout: equity indices, blue chips, FX, commodities, crypto, rates & volatility, 1-day changes color-coded.
+1. **Global Asset Dashboard** — one page, symmetric 2×3 grid, **60 instruments** (10 each): Equity Indices, Blue Chips, FX, Commodities, Rates & Volatility, Crypto (top-10 by cap). 1-day changes color-coded, data-source line in the footer.
 2. **Top 10 Global Political & Economic News** — ranked from multi-source RSS by keyword importance × source weight × recency (36-hour window, per-source diversity cap).
 3. **Analysis** — one cohesive section, max 500 words. Uses the Anthropic API when `ANTHROPIC_API_KEY` is set; otherwise a deterministic rule-based engine (risk-on/off score, top movers, rates / dollar / gold / crypto cross-read).
 
@@ -88,12 +88,17 @@ python daily_finance_brief.py --serve --port 8787
 
 **GitHub Actions**: already wired — `.github/workflows/test.yml` runs the brief on the same schedule and uploads `out/` as a build artifact. Add repo secret `ANTHROPIC_API_KEY` (optional) to enable Claude-generated analysis in CI.
 
+## Branding
+
+The PDF header carries the FinChip logo. By default a vector recreation is drawn; to use the official logo, drop the PNG from finchip.ai into `assets/finchip-logo.png` — it will be picked up automatically.
+
 ## Data sources (all public, no auth required)
 
 | Source | Role |
 |---|---|
 | Yahoo Finance (yfinance) | primary quotes: indices / stocks / FX / commodities / rates |
 | Stooq CSV | per-instrument fallback |
+| FRED (St. Louis Fed) | official fallback for US Treasury yields (10Y/5Y/30Y/3M) |
 | CoinGecko public API | crypto 24h prices |
 | MarketWatch, CNBC, BBC Business, Guardian Economics, Google News RSS | headlines |
 

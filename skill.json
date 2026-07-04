@@ -1,10 +1,10 @@
 {
   "$schema": "https://finchip.ai/schemas/skill/1.0.json",
   "name": "daily-finance-brief",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "repository": "https://github.com/Sleipnirs/finchip-daily-finance-brief",
   "title": "Daily Global Finance Brief",
-  "description": "Generates an English daily briefing: one-page global asset dashboard (indices, blue chips, FX, commodities, crypto, rates & vol), top-10 political/economic headlines, and an analysis section (<= 500 words). Output as report.md and/or report.pdf.",
+  "description": "Generates an English daily briefing: one-page global asset dashboard (60 instruments: 10 each across indices, blue chips, FX, commodities, rates & vol, crypto), top-10 political/economic headlines, and an analysis section (<= 500 words). Output as report.md and/or report.pdf.",
   "category": "Finance",
   "runtime": {
     "language": "python",
@@ -96,6 +96,11 @@
     {
       "name": "Stooq CSV",
       "role": "fallback market quotes",
+      "auth": "none"
+    },
+    {
+      "name": "FRED (St. Louis Fed)",
+      "role": "official fallback for US Treasury yields",
       "auth": "none"
     },
     {

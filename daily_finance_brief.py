@@ -59,16 +59,20 @@ INSTRUMENTS: dict[str, list[tuple[str, str, Optional[str]]]] = {
         ("^N225",     "Nikkei 225",     "^nkx"),
         ("^HSI",      "Hang Seng",      None),
         ("000001.SS", "Shanghai Comp.", None),
+        ("^STOXX50E", "Euro Stoxx 50",  None),
+        ("^NSEI",     "Nifty 50",       None),
     ],
     "Blue Chips": [
-        ("AAPL",  "Apple",     "aapl.us"),
-        ("MSFT",  "Microsoft", "msft.us"),
-        ("NVDA",  "NVIDIA",    "nvda.us"),
-        ("AMZN",  "Amazon",    "amzn.us"),
-        ("GOOGL", "Alphabet",  "googl.us"),
-        ("META",  "Meta",      "meta.us"),
-        ("TSM",   "TSMC",      "tsm.us"),
-        ("JPM",   "JPMorgan",  "jpm.us"),
+        ("AAPL",  "Apple",       "aapl.us"),
+        ("MSFT",  "Microsoft",   "msft.us"),
+        ("NVDA",  "NVIDIA",      "nvda.us"),
+        ("AMZN",  "Amazon",      "amzn.us"),
+        ("GOOGL", "Alphabet",    "googl.us"),
+        ("META",  "Meta",        "meta.us"),
+        ("TSM",   "TSMC",        "tsm.us"),
+        ("JPM",   "JPMorgan",    "jpm.us"),
+        ("BRK-B", "Berkshire B", "brk-b.us"),
+        ("TSLA",  "Tesla",       "tsla.us"),
     ],
     "FX": [
         ("DX-Y.NYB", "US Dollar Index", None),
@@ -76,6 +80,11 @@ INSTRUMENTS: dict[str, list[tuple[str, str, Optional[str]]]] = {
         ("USDJPY=X", "USD/JPY",         "usdjpy"),
         ("GBPUSD=X", "GBP/USD",         "gbpusd"),
         ("USDCNY=X", "USD/CNY",         "usdcny"),
+        ("AUDUSD=X", "AUD/USD",         "audusd"),
+        ("CHF=X",    "USD/CHF",         "usdchf"),
+        ("CAD=X",    "USD/CAD",         "usdcad"),
+        ("SGD=X",    "USD/SGD",         "usdsgd"),
+        ("INR=X",    "USD/INR",         "usdinr"),
     ],
     "Commodities": [
         ("GC=F", "Gold",        "xauusd"),
@@ -83,20 +92,43 @@ INSTRUMENTS: dict[str, list[tuple[str, str, Optional[str]]]] = {
         ("CL=F", "WTI Crude",   "cl.f"),
         ("BZ=F", "Brent Crude", None),
         ("HG=F", "Copper",      "hg.f"),
+        ("NG=F", "Natural Gas", "ng.f"),
+        ("PL=F", "Platinum",    "xptusd"),
+        ("PA=F", "Palladium",   "xpdusd"),
+        ("ZW=F", "Wheat",       None),
+        ("ZC=F", "Corn",        None),
     ],
     "Rates & Volatility": [
-        ("^TNX", "US 10Y Yield (%)", "10usy.b"),
-        ("^VIX", "VIX",              None),
+        ("^TNX", "US 10Y Yield (%)",  "10usy.b"),
+        ("^VIX", "VIX",               None),
+        ("^FVX", "US 5Y Yield (%)",   None),
+        ("^TYX", "US 30Y Yield (%)",  None),
+        ("^IRX", "US 3M Yield (%)",   None),
+        ("^VVIX", "VVIX",             None),
+        ("^MOVE", "MOVE (Bond Vol)",  None),
+        ("^SKEW", "SKEW (Tail Risk)", None),
+        ("HYG",  "HYG (HY Credit)",   "hyg.us"),
+        ("TLT",  "TLT (20Y+ Bonds)",  "tlt.us"),
     ],
 }
 
-# CoinGecko ids -> display names
+# FRED official fallback series for US Treasury yields (no key required)
+FRED_MAP = {"^TNX": "DGS10", "^FVX": "DGS5", "^TYX": "DGS30", "^IRX": "DTB3"}
+
+# CoinGecko ids -> display names (top-10 by market cap, ex-stablecoins)
 CRYPTO = [
-    ("bitcoin",  "Bitcoin (BTC)"),
-    ("ethereum", "Ethereum (ETH)"),
-    ("solana",   "Solana (SOL)"),
-    ("binancecoin", "BNB"),
+    ("bitcoin",      "Bitcoin (BTC)"),
+    ("ethereum",     "Ethereum (ETH)"),
+    ("ripple",       "XRP"),
+    ("binancecoin",  "BNB"),
+    ("solana",       "Solana (SOL)"),
+    ("dogecoin",     "Dogecoin (DOGE)"),
+    ("cardano",      "Cardano (ADA)"),
+    ("tron",         "TRON (TRX)"),
+    ("avalanche-2",  "Avalanche (AVAX)"),
+    ("chainlink",    "Chainlink (LINK)"),
 ]
+
 
 NEWS_FEEDS = [
     # (url, source_name, source_weight)
@@ -231,9 +263,9 @@ def _fetch_coingecko() -> dict[str, tuple[float, float]]:
     return out
 
 
-def _fetch_fred_dgs10() -> Optional[tuple[float, float]]:
-    """US 10Y yield from FRED (official, no key). Returns (last, pct_change)."""
-    url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10"
+def _fetch_fred(series: str) -> Optional[tuple[float, float]]:
+    """US Treasury data from FRED (official, no key). Returns (last, pct_change)."""
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
     try:
         r = requests.get(url, headers=UA, timeout=10)
         vals = []
@@ -265,8 +297,8 @@ def fetch_market(brief: Brief) -> None:
                 res = _fetch_stooq(stooq_sym)
                 if res:
                     q.price, q.change_pct, q.ok = res[0], res[1], True
-            if not q.ok and sym == "^TNX":          # dedicated FRED fallback for US 10Y
-                res = _fetch_fred_dgs10()
+            if not q.ok and sym in FRED_MAP:         # official FRED fallback for UST series
+                res = _fetch_fred(FRED_MAP[sym])
                 if res:
                     q.price, q.change_pct, q.ok = res[0], res[1], True
             if not q.ok:
@@ -492,6 +524,54 @@ def render_markdown(brief: Brief) -> str:
     return "\n".join(out) + "\n"
 
 
+def _draw_logo(canvas, x: float, y: float, h: float) -> float:
+    """Draw the FinChip logo at (x, y baseline) with icon height h.
+    Uses assets/finchip-logo.png if present; otherwise a vector recreation.
+    Returns total width drawn."""
+    from reportlab.lib import colors
+    AZURE, COBALT = colors.HexColor("#00C0F8"), colors.HexColor("#0080F8")
+    here = os.path.dirname(os.path.abspath(__file__))
+    for p in (os.path.join(here, "assets", "finchip-logo.png"), "assets/finchip-logo.png"):
+        if os.path.isfile(p):
+            try:
+                from reportlab.lib.utils import ImageReader
+                img = ImageReader(p)
+                iw, ih = img.getSize()
+                w = h * iw / ih
+                canvas.drawImage(img, x, y, width=w, height=h, mask="auto")
+                return w
+            except Exception:
+                break
+    # --- vector fallback: rounded icon with stylized F + wordmark ---
+    canvas.saveState()
+    canvas.setFillColor(colors.white)
+    canvas.setStrokeColor(colors.HexColor("#CFE4FB")); canvas.setLineWidth(0.9)
+    canvas.roundRect(x, y, h, h, h * 0.24, stroke=1, fill=1)
+    ix, iy, s = x + h * 0.22, y + h * 0.16, h * 0.62   # F glyph box
+    sk = s * 0.14                                       # italic skew
+    p = canvas.beginPath()                              # top bar (azure)
+    p.moveTo(ix + sk, iy + s); p.lineTo(ix + sk + s * 0.78, iy + s)
+    p.lineTo(ix + sk + s * 0.70, iy + s * 0.74); p.lineTo(ix + sk * 0.72, iy + s * 0.74); p.close()
+    canvas.setFillColor(AZURE); canvas.drawPath(p, stroke=0, fill=1)
+    p = canvas.beginPath()                              # middle bar (cobalt)
+    p.moveTo(ix + sk * 0.55, iy + s * 0.58); p.lineTo(ix + sk * 0.55 + s * 0.56, iy + s * 0.58)
+    p.lineTo(ix + sk * 0.40 + s * 0.50, iy + s * 0.34); p.lineTo(ix + sk * 0.30, iy + s * 0.34); p.close()
+    canvas.setFillColor(COBALT); canvas.drawPath(p, stroke=0, fill=1)
+    p = canvas.beginPath()                              # stem (azure)
+    p.moveTo(ix + sk, iy + s); p.lineTo(ix + sk * 0.72 + s * 0.26, iy + s)
+    p.lineTo(ix + s * 0.20, iy); p.lineTo(ix, iy); p.close()
+    canvas.setFillColor(AZURE); canvas.drawPath(p, stroke=0, fill=1)
+    fs = h * 0.60                                       # wordmark
+    tx = x + h * 1.22
+    canvas.setFont("Helvetica-Bold", fs)
+    canvas.setFillColor(AZURE); canvas.drawString(tx, y + h * 0.24, "FinChip")
+    w1 = canvas.stringWidth("FinChip", "Helvetica-Bold", fs)
+    canvas.setFillColor(COBALT); canvas.drawString(tx + w1, y + h * 0.24, ".AI")
+    w2 = canvas.stringWidth(".AI", "Helvetica-Bold", fs)
+    canvas.restoreState()
+    return h * 1.22 + w1 + w2
+
+
 def render_pdf(brief: Brief, path: str) -> None:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -501,65 +581,84 @@ def render_pdf(brief: Brief, path: str) -> None:
                                     Paragraph, Spacer, Table, TableStyle,
                                     NextPageTemplate, PageBreak)
 
-    AZURE, COBALT, GOLD = colors.HexColor("#2F9BFF"), colors.HexColor("#0A5BE0"), colors.HexColor("#D99E1A")
-    SKY, INK, UP, DOWN = colors.HexColor("#EAF4FE"), colors.HexColor("#0F2440"), colors.HexColor("#0B8A3E"), colors.HexColor("#C0392B")
+    # Palette extracted from the official FinChip logo (assets/finchip-logo.png):
+    #   wordmark blue #0098F8 | icon gradient #00C0F8 -> #0080F8 | light accent #88C8F8 | plate #E8F0F8
+    BRAND  = colors.HexColor("#0098F8")   # primary FinChip blue (wordmark)
+    DEEP   = colors.HexColor("#0080F8")   # gradient dark end
+    CYAN   = colors.HexColor("#00C0F8")   # gradient light end / hairlines
+    SOFT   = colors.HexColor("#88C8F8")   # light accent
+    SKY    = colors.HexColor("#E8F0F8")   # plate / zebra rows (logo plate color)
+    PAGE   = colors.HexColor("#F5FAFD")   # page wash (plate tinted toward white)
+    INK    = colors.HexColor("#16324F")   # body text, blue-slate
+    MUTE   = colors.HexColor("#6E96B8")   # secondary text, blue-grey
+    UP, DOWN, BORDER = colors.HexColor("#0B8A3E"), colors.HexColor("#C0392B"), colors.HexColor("#C7E6FC")
 
     styles = getSampleStyleSheet()
-    s_title = ParagraphStyle("t", parent=styles["Title"], fontSize=19, textColor=COBALT,
+    s_title = ParagraphStyle("t", parent=styles["Title"], fontSize=18, textColor=BRAND,
                              alignment=0, spaceAfter=1)
-    s_sub   = ParagraphStyle("s", parent=styles["Normal"], fontSize=8.5, textColor=colors.HexColor("#5B7898"))
-    s_grp   = ParagraphStyle("g", parent=styles["Normal"], fontSize=9.5, textColor=colors.white,
-                             backColor=COBALT, leading=13, leftIndent=0)
-    s_h2    = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=13, textColor=COBALT, spaceBefore=4)
+    s_sub   = ParagraphStyle("s", parent=styles["Normal"], fontSize=8.5, textColor=MUTE)
+    s_h2    = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=13, textColor=BRAND, spaceBefore=4)
+    s_cell  = ParagraphStyle("c", parent=styles["Normal"], fontSize=8.3, leading=10.5, textColor=INK)
     s_body  = ParagraphStyle("b", parent=styles["Normal"], fontSize=9.5, leading=13.5, textColor=INK)
     s_news  = ParagraphStyle("n", parent=styles["Normal"], fontSize=9.5, leading=13, textColor=INK, spaceAfter=4)
     s_foot  = ParagraphStyle("f", parent=styles["Normal"], fontSize=7, textColor=colors.HexColor("#7A8CA3"))
 
-    def header(canvas, doc):
+    SOURCES_LINE = ("Data: Yahoo Finance \u00b7 Stooq \u00b7 FRED (St. Louis Fed) \u00b7 CoinGecko   |   "
+                    "News: MarketWatch \u00b7 CNBC \u00b7 BBC \u00b7 The Guardian \u00b7 Google News   |   "
+                    "finchip.ai \u00b7 Informational only, not investment advice")
+
+    def _chrome(canvas, doc, with_sources_footer: bool):
         canvas.saveState()
-        canvas.setFillColor(SKY)
-        canvas.rect(0, A4[1] - 16 * mm, A4[0], 16 * mm, stroke=0, fill=1)
-        canvas.setFillColor(GOLD)
-        canvas.rect(0, A4[1] - 16.8 * mm, A4[0], 0.8 * mm, stroke=0, fill=1)
-        canvas.setFillColor(COBALT); canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(14 * mm, A4[1] - 10.5 * mm, "FinChip · Daily Global Finance Brief")
+        canvas.setFillColor(PAGE)                                   # sky page wash
+        canvas.rect(0, 0, A4[0], A4[1], stroke=0, fill=1)
+        canvas.setFillColor(colors.white)                           # header band
+        canvas.rect(0, A4[1] - 18 * mm, A4[0], 18 * mm, stroke=0, fill=1)
+        canvas.setFillColor(CYAN)                                   # brand hairline
+        canvas.rect(0, A4[1] - 18.7 * mm, A4[0], 0.7 * mm, stroke=0, fill=1)
+        _draw_logo(canvas, 14 * mm, A4[1] - 14.6 * mm, 8.2 * mm)
+        canvas.setFillColor(MUTE); canvas.setFont("Helvetica-Bold", 8.5)
+        canvas.drawRightString(A4[0] - 14 * mm, A4[1] - 9.2 * mm, "DAILY GLOBAL FINANCE BRIEF")
         canvas.setFillColor(INK); canvas.setFont("Helvetica", 8)
-        canvas.drawRightString(A4[0] - 14 * mm, A4[1] - 10.5 * mm, f"{brief.generated_at} UTC")
+        canvas.drawRightString(A4[0] - 14 * mm, A4[1] - 13.6 * mm, f"{brief.generated_at} UTC")
+        if with_sources_footer:
+            canvas.setFillColor(colors.HexColor("#7A8CA3")); canvas.setFont("Helvetica", 6.6)
+            canvas.drawCentredString(A4[0] / 2, 7.5 * mm, SOURCES_LINE)
         canvas.restoreState()
 
-    doc = BaseDocTemplate(path, pagesize=A4,
-                          leftMargin=14 * mm, rightMargin=14 * mm,
-                          topMargin=20 * mm, bottomMargin=12 * mm)
-    # page 1: two-column dashboard; page 2+: single column
-    colw = (A4[0] - 28 * mm - 6 * mm) / 2
-    f1 = Frame(14 * mm, 12 * mm, colw, A4[1] - 34 * mm, id="c1")
-    f2 = Frame(14 * mm + colw + 6 * mm, 12 * mm, colw, A4[1] - 34 * mm, id="c2")
-    full = Frame(14 * mm, 12 * mm, A4[0] - 28 * mm, A4[1] - 34 * mm, id="full")
-    doc.addPageTemplates([PageTemplate(id="dash", frames=[f1, f2], onPage=header),
-                          PageTemplate(id="text", frames=[full], onPage=header)])
+    def chrome_dash(canvas, doc): _chrome(canvas, doc, True)
+    def chrome_text(canvas, doc): _chrome(canvas, doc, False)
 
-    story = [Paragraph("Global Asset Dashboard", s_title),
-             Paragraph("Section 1 · One-day moves across major asset classes", s_sub),
-             Spacer(1, 4)]
+    doc = BaseDocTemplate(path, pagesize=A4,
+                          leftMargin=13 * mm, rightMargin=13 * mm,
+                          topMargin=22 * mm, bottomMargin=13 * mm)
+    gap = 5 * mm
+    colw = (A4[0] - 26 * mm - gap) / 2
+    f1 = Frame(13 * mm, 13 * mm, colw, A4[1] - 35 * mm, id="c1")
+    f2 = Frame(13 * mm + colw + gap, 13 * mm, colw, A4[1] - 35 * mm, id="c2")
+    full = Frame(13 * mm, 13 * mm, A4[0] - 26 * mm, A4[1] - 35 * mm, id="full")
+    doc.addPageTemplates([PageTemplate(id="dash", frames=[f1, f2], onPage=chrome_dash),
+                          PageTemplate(id="text", frames=[full], onPage=chrome_text)])
 
     def qtable(group: str, quotes: list[Quote]):
-        data = [[Paragraph(f"<b>{group}</b>", s_grp), "", ""]]
+        data = [[Paragraph(f'<font color="white"><b>{html.escape(group)}</b></font>', s_cell), "", ""]]
         for q in quotes:
-            c = UP if (q.ok and (q.change_pct or 0) > 0) else (DOWN if (q.ok and (q.change_pct or 0) < 0) else INK)
-            data.append([Paragraph(q.name, s_body), _fmt_price(q), _fmt_chg(q)])
-        t = Table(data, colWidths=[colw * 0.52, colw * 0.26, colw * 0.22])
+            data.append([Paragraph(html.escape(q.name), s_cell), _fmt_price(q), _fmt_chg(q)])
+        t = Table(data, colWidths=[colw * 0.50, colw * 0.28, colw * 0.22])
         style = [
             ("SPAN", (0, 0), (-1, 0)),
-            ("BACKGROUND", (0, 0), (-1, 0), COBALT),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+            ("BACKGROUND", (0, 0), (-1, 0), BRAND),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, SKY]),
-            ("FONTSIZE", (1, 1), (-1, -1), 9),
-            ("FONTNAME", (1, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (1, 1), (-1, -1), 8.3),
+            ("FONTNAME", (1, 1), (1, -1), "Helvetica"),
             ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TEXTCOLOR", (1, 1), (1, -1), INK),
-            ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-            ("LINEBELOW", (0, 0), (-1, 0), 0.8, GOLD),
-            ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#BFD9F5")),
+            ("TOPPADDING", (0, 1), (-1, -1), 2.2), ("BOTTOMPADDING", (0, 1), (-1, -1), 2.2),
+            ("TOPPADDING", (0, 0), (-1, 0), 3.2), ("BOTTOMPADDING", (0, 0), (-1, 0), 3.2),
+            ("LEFTPADDING", (0, 0), (0, -1), 6),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.0, CYAN),
+            ("BOX", (0, 0), (-1, -1), 0.7, BORDER),
+            ("LINEBELOW", (0, -1), (-1, -1), 0.7, BORDER),
         ]
         for i, q in enumerate(quotes, start=1):
             c = UP if (q.ok and (q.change_pct or 0) > 0) else (DOWN if (q.ok and (q.change_pct or 0) < 0) else INK)
@@ -568,8 +667,21 @@ def render_pdf(brief: Brief, path: str) -> None:
         t.setStyle(TableStyle(style))
         return t
 
-    for group, quotes in brief.market.items():
-        story += [qtable(group, quotes), Spacer(1, 7)]
+    # symmetric 2x3 grid: left column = Equity / FX / Rates, right = Blue Chips / Commodities / Crypto
+    LEFT  = ["Equity Indices", "FX", "Rates & Volatility"]
+    RIGHT = ["Blue Chips", "Commodities", "Crypto"]
+
+    story = [Paragraph("Global Asset Dashboard", s_title),
+             Paragraph("Section 1 \u00b7 One-day moves across major asset classes \u00b7 10 instruments per class", s_sub),
+             Spacer(1, 5)]
+    for g in LEFT:
+        story += [qtable(g, brief.market.get(g, [])), Spacer(1, 6)]
+    # jump to right frame at matching height: pad to top with same title-block height
+    from reportlab.platypus import FrameBreak
+    story += [FrameBreak(),
+              Spacer(1, s_title.fontSize + s_sub.fontSize + 25.5)]
+    for g in RIGHT:
+        story += [qtable(g, brief.market.get(g, [])), Spacer(1, 6)]
 
     story += [NextPageTemplate("text"), PageBreak(),
               Paragraph("Top 10 Global Political &amp; Economic News", s_h2), Spacer(1, 2)]
@@ -577,7 +689,7 @@ def render_pdf(brief: Brief, path: str) -> None:
         for i, n in enumerate(brief.news, 1):
             story.append(Paragraph(
                 f"<b>{i}.</b> {html.escape(n.title)} "
-                f'<font size="8" color="#5B7898">— {html.escape(n.source)}</font>', s_news))
+                f'<font size="8" color="#5B7898">\u2014 {html.escape(n.source)}</font>', s_news))
     else:
         story.append(Paragraph("No fresh headlines were collected in this run.", s_body))
 
@@ -586,9 +698,7 @@ def render_pdf(brief: Brief, path: str) -> None:
         story += [Paragraph(html.escape(para), s_body), Spacer(1, 4)]
 
     story += [Spacer(1, 10), Paragraph(
-        f"Analysis engine: {brief.analysis_engine}. Sources: Yahoo Finance / Stooq, CoinGecko, "
-        "MarketWatch, CNBC, BBC, The Guardian, Google News. Informational only — not investment advice.",
-        s_foot)]
+        f"Analysis engine: {brief.analysis_engine}. " + SOURCES_LINE, s_foot)]
     doc.build(story)
 
 # ----------------------------------------------------------------------------
@@ -600,18 +710,31 @@ def load_demo(brief: Brief) -> None:
         "Equity Indices": [("S&P 500", 6489.22, 0.84), ("Nasdaq Comp.", 21440.15, 1.22),
                            ("Dow Jones", 45102.60, 0.41), ("FTSE 100", 8890.34, -0.18),
                            ("DAX 40", 24310.55, 0.35), ("Nikkei 225", 42780.90, 1.05),
-                           ("Hang Seng", 24890.44, -0.62), ("Shanghai Comp.", 3455.87, -0.21)],
+                           ("Hang Seng", 24890.44, -0.62), ("Shanghai Comp.", 3455.87, -0.21),
+                           ("Euro Stoxx 50", 5388.10, 0.22), ("Nifty 50", 25640.35, 0.68)],
         "Blue Chips": [("Apple", 244.31, 0.62), ("Microsoft", 512.44, 1.10),
                        ("NVIDIA", 176.02, 2.85), ("Amazon", 231.77, 0.95),
                        ("Alphabet", 201.15, 0.44), ("Meta", 742.60, -0.35),
-                       ("TSMC", 228.90, 1.75), ("JPMorgan", 291.33, 0.28)],
+                       ("TSMC", 228.90, 1.75), ("JPMorgan", 291.33, 0.28),
+                       ("Berkshire B", 489.05, 0.15), ("Tesla", 318.42, -1.62)],
         "FX": [("US Dollar Index", 97.42, -0.33), ("EUR/USD", 1.1842, 0.31),
-               ("USD/JPY", 143.85, -0.42), ("GBP/USD", 1.3722, 0.18), ("USD/CNY", 7.1420, -0.05)],
+               ("USD/JPY", 143.85, -0.42), ("GBP/USD", 1.3722, 0.18), ("USD/CNY", 7.1420, -0.05),
+               ("AUD/USD", 0.6588, 0.24), ("USD/CHF", 0.7925, -0.15),
+               ("USD/CAD", 1.3610, 0.08), ("USD/SGD", 1.2735, -0.11), ("USD/INR", 85.52, 0.06)],
         "Commodities": [("Gold", 3348.50, 0.72), ("Silver", 37.05, 1.34),
-                        ("WTI Crude", 66.42, -1.85), ("Brent Crude", 68.51, -1.62), ("Copper", 5.12, 0.88)],
-        "Rates & Volatility": [("US 10Y Yield (%)", 4.34, -1.10), ("VIX", 16.42, -4.20)],
+                        ("WTI Crude", 66.42, -1.85), ("Brent Crude", 68.51, -1.62), ("Copper", 5.12, 0.88),
+                        ("Natural Gas", 3.42, 2.10), ("Platinum", 1388.60, 0.95),
+                        ("Palladium", 1142.30, -0.44), ("Wheat", 548.25, 0.36), ("Corn", 412.50, -0.72)],
+        "Rates & Volatility": [("US 10Y Yield (%)", 4.34, -1.10), ("VIX", 16.42, -4.20),
+                               ("US 5Y Yield (%)", 3.92, -0.85), ("US 30Y Yield (%)", 4.86, -0.62),
+                               ("US 3M Yield (%)", 4.28, 0.05), ("VVIX", 92.40, -2.15),
+                               ("MOVE (Bond Vol)", 88.60, -1.40), ("SKEW (Tail Risk)", 148.22, 0.85),
+                               ("HYG (HY Credit)", 80.15, 0.22), ("TLT (20Y+ Bonds)", 89.44, 0.65)],
         "Crypto": [("Bitcoin (BTC)", 108420.0, 2.15), ("Ethereum (ETH)", 2588.4, 3.42),
-                   ("Solana (SOL)", 152.7, 4.10), ("BNB", 662.3, 1.22)],
+                   ("XRP", 2.28, 1.85), ("BNB", 662.3, 1.22),
+                   ("Solana (SOL)", 152.7, 4.10), ("Dogecoin (DOGE)", 0.1685, 2.92),
+                   ("Cardano (ADA)", 0.5840, 1.05), ("TRON (TRX)", 0.2870, 0.44),
+                   ("Avalanche (AVAX)", 18.25, 3.15), ("Chainlink (LINK)", 13.42, 2.36)],
     }
     for group, rows in fx.items():
         brief.market[group] = [Quote(name=n, price=p, change_pct=c, ok=True) for n, p, c in rows]
