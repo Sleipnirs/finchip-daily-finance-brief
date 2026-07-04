@@ -473,7 +473,7 @@ def render_markdown(brief: Brief) -> str:
     for group, quotes in brief.market.items():
         out += [f"### {group}", "", "| Asset | Last | 1D Change |", "|---|---:|---:|"]
         for q in quotes:
-            arrow = "" if not q.ok else ("🔺 " if (q.change_pct or 0) > 0 else ("🔻 " if (q.change_pct or 0) < 0 else "▪️ "))
+            arrow = "" if not q.ok else ("🟢 " if (q.change_pct or 0) > 0 else ("🔴 " if (q.change_pct or 0) < 0 else "⚪ "))
             out.append(f"| {q.name} | {_fmt_price(q)} | {arrow}{_fmt_chg(q)} |")
         out.append("")
     out += ["## 2 · Top 10 Global Political & Economic News", ""]
