@@ -1,4 +1,4 @@
-# skill-daily-finance-brief
+# finchip-daily-finance-brief
 
 A FinChip Skill that generates an English **daily global finance briefing**:
 
@@ -11,7 +11,7 @@ Outputs `report.md` (always) and `report.pdf` (reportlab, FinChip design languag
 ## Repository layout
 
 ```
-skill-daily-finance-brief/
+finchip-daily-finance-brief/
 ├── daily_finance_brief.py        # the skill (single file)
 ├── skill.json                    # FinChip invocation-contract manifest
 ├── requirements.txt
@@ -27,8 +27,8 @@ skill-daily-finance-brief/
 ## Quick start (EC2 / local)
 
 ```bash
-git clone https://github.com/Sleipnirs/skill-daily-finance-brief.git
-cd skill-daily-finance-brief
+git clone https://github.com/Sleipnirs/finchip-daily-finance-brief.git
+cd finchip-daily-finance-brief
 pip install -r requirements.txt
 python daily_finance_brief.py examples/input_empty.json
 ```
@@ -50,7 +50,7 @@ The skill is a single file, so you can pull and run it in one line:
 
 ```bash
 pip install requests feedparser reportlab yfinance
-curl -sL https://raw.githubusercontent.com/Sleipnirs/skill-daily-finance-brief/main/daily_finance_brief.py \
+curl -sL https://raw.githubusercontent.com/Sleipnirs/finchip-daily-finance-brief/main/daily_finance_brief.py \
   | python - '{"format":"md"}'
 ```
 
@@ -82,7 +82,7 @@ python daily_finance_brief.py --serve --port 8787
 **EC2 cron** (22:05 UTC after US close, weekdays):
 
 ```cron
-5 22 * * 1-5 cd /opt/skills/skill-daily-finance-brief && /usr/bin/python3 daily_finance_brief.py examples/input_empty.json
+5 22 * * 1-5 cd /opt/skills/finchip-daily-finance-brief && /usr/bin/python3 daily_finance_brief.py examples/input_empty.json
 ```
 
 **GitHub Actions**: already wired — `.github/workflows/test.yml` runs the brief on the same schedule and uploads `out/` as a build artifact. Add repo secret `ANTHROPIC_API_KEY` (optional) to enable Claude-generated analysis in CI.
