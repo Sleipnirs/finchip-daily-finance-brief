@@ -1,0 +1,55 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 22 * * 1-5"   # daily live brief after US close (22:05 UTC, Mon-Fri)
+
+jobs:
+  offline-test:
+    name: Offline test (demo fixtures)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run skill with demo input
+        run: python daily_finance_brief.py examples/input_demo_offline.json
+      - name: Assert outputs exist
+        run: |
+          test -s out/report.md
+          test -s out/report.pdf
+          grep -q "Daily Global Finance Brief" out/report.md
+          grep -q "## 3 · Analysis" out/report.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-report
+          path: out/
+
+  live-smoke:
+    name: Live smoke test (real data sources)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # external sources may be flaky; do not block CI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run skill live
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # optional
+        run: python daily_finance_brief.py examples/input_empty.json
+      - name: Assert outputs exist
+        run: |
+          test -s out/report.md
+          test -s out/report.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-report
+          path: out/
